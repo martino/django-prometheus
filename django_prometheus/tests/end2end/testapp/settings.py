@@ -11,9 +11,10 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 """
 
 import django
+from testapp.dj_database_url import config
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -97,40 +98,7 @@ WSGI_APPLICATION = 'testapp.wsgi.application'
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django_prometheus.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    },
-
-    # Comment this to not test django_prometheus.db.backends.postgres.
-    'postgresql': {
-        'ENGINE': 'django_prometheus.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres',
-        'PASSWORD': '',
-        'HOST': 'localhost',
-        'PORT': '5432',
-    },
-
-    # Comment this to not test django_prometheus.db.backends.mysql.
-    'mysql': {
-        'ENGINE': 'django_prometheus.db.backends.mysql',
-        'NAME': 'django_prometheus_1',
-        'USER': 'travis',
-        'PASSWORD': '',
-        'HOST': 'localhost',
-        'PORT': '3306',
-    },
-
-    # The following databases are used by test_db.py only
-    'test_db_1': {
-        'ENGINE': 'django_prometheus.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'test_db_1.sqlite3'),
-    },
-    'test_db_2': {
-        'ENGINE': 'django_prometheus.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'test_db_2.sqlite3'),
-    },
+    'default': config(),
 }
 
 
