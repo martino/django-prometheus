@@ -10,7 +10,10 @@ if django.VERSION >= (1, 8):
 
 
 def index(request):
-    return TemplateResponse(request, 'index.html', {})
+    data = {}
+    if request.method == 'POST':
+        data = request.POST
+    return TemplateResponse(request, 'index.html', {data: data})
 
 
 def help(request):
