@@ -1,6 +1,25 @@
 from prometheus_client import Counter, Histogram
 from django_prometheus.utils import Time, TimeSince, PowersOf
 
+
+class PrometheusBaseMiddleware(object):
+    def _transport(self, request):
+        return 'https' if request.is_secure() else 'http'
+
+    def _method(self, request):
+        m = request.method
+        if m not in ('GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'TRACE',
+                     'OPTIONS', 'CONNECT', 'PATCH'):
+            return '<invalid method>'
+        return m
+
+    def _view_name(self, request):
+        resolver_match = getattr(request, 'resolver_match', None)
+        if resolver_match:
+            return resolver_match.view_name or '<unnamed view>'
+        return None
+
+
 requests_total = Counter(
     'django_http_requests_before_middlewares_total',
     'Total count of requests before middlewares run.')
@@ -15,9 +34,14 @@ requests_unknown_latency_before = Counter(
     'django_http_requests_unknown_latency_including_middlewares_total',
     ('Count of requests for which the latency was unknown (when computing '
      'django_http_requests_latency_including_middlewares_seconds).'))
+requests_time_metric = Histogram(
+    'djagno_http_requests_seconds',
+    'Histogram of requests by name, method and response time',
+    ['method', 'name'],
+    buckets=[0.1, 0.25, 0.5, 0.75, 1, 1.5, 2.5, 5, 7.5, 10, 15, 20, 30])
 
 
-class PrometheusBeforeMiddleware(object):
+class PrometheusBeforeMiddleware(PrometheusBaseMiddleware):
     """Monitoring middleware that should run before other middlewares."""
     def process_request(self, request):
         requests_total.inc()
@@ -28,6 +52,13 @@ class PrometheusBeforeMiddleware(object):
         if hasattr(request, 'prometheus_before_middleware_event'):
             requests_latency_before.observe(TimeSince(
                 request.prometheus_before_middleware_event))
+            view_name = self._view_name(request)
+            if view_name:
+                requests_time_metric\
+                    .labels(self._method(request), view_name)\
+                    .observe(
+                        TimeSince(request.prometheus_before_middleware_event)
+                    )
         else:
             requests_unknown_latency_before.inc()
         return response
@@ -92,18 +123,8 @@ exceptions_by_view = Counter(
     ['view_name'])
 
 
-class PrometheusAfterMiddleware(object):
+class PrometheusAfterMiddleware(PrometheusBaseMiddleware):
     """Monitoring middleware that should run after other middlewares."""
-    def _transport(self, request):
-        return 'https' if request.is_secure() else 'http'
-
-    def _method(self, request):
-        m = request.method
-        if m not in ('GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'TRACE',
-                     'OPTIONS', 'CONNECT', 'PATCH'):
-            return '<invalid method>'
-        return m
-
     def process_request(self, request):
         transport = self._transport(request)
         method = self._method(request)
@@ -123,8 +144,8 @@ class PrometheusAfterMiddleware(object):
     def process_view(self, request, view_func, *view_args, **view_kwargs):
         transport = self._transport(request)
         method = self._method(request)
+        name = self._view_name(request)
         if hasattr(request, 'resolver_match'):
-            name = request.resolver_match.view_name or '<unnamed view>'
             requests_by_view_transport_method.labels(
                 name, transport, method).inc()
 
